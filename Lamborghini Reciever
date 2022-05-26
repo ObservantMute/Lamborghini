@@ -1,0 +1,78 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#include <Servo.h>
+
+Servo steerServo; //Attached to Servo 1
+Servo speedServo; //Attached to Servo 2
+int steerServoVal; //Values mapped to 0-180 from RF24 Values
+int speedServoVal;
+
+RF24 radio(7, 8); // CSN, CE
+
+struct package{
+  uint16_t encVal;
+  uint16_t XVal;
+  uint16_t YVal;
+  uint16_t potButtonVal;
+  uint16_t switchVal;
+  }
+
+typedef struct package Package;
+Package data;
+
+byte addresses[][6] = {"0"}; 
+
+void setup() {
+  radio.begin(); 
+  radio.setChannel(115);  //115 band above WIFI signals
+  radio.setPALevel(RF24_PA_MIN); //MIN power low rage
+  radio.setDataRate( RF24_250KBPS ) ;  //Minimum speed
+
+  steerServo.attach(10);
+  speedServo.attach(9);
+
+  steerServo.write(90);
+  speedServo.write(90);
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  ReadData();
+  DataProcessing();
+  
+  steerServo.write(steerServoVal);
+  speedServo.write(speedServoVal);
+  
+  SerialPrint();
+}
+
+void ReadData(){
+  myRadio.openReadingPipe(1, 0xF0F0F0F0AA); //Which pipe to read, 40 bit Address
+  myRadio.startListening(); //Stop Transminting and start Reveicing 
+  if ( myRadio.available()){
+    while (myRadio.available()){
+      myRadio.read( &data, sizeof(data));
+    }
+    Serial.print("\nReceived:");
+    Serial.println(data.msg);
+  }else {
+    Serial.println("no data");
+    steerServoVal = 90;
+    speedServoVal = 0;
+  }
+}
+
+void DataProcessing(){
+  speedServoVal = map(data.encVal, 0, 100, 0, 180);
+  steerServoVal = map(data.XVal, 0, 1024, 0, 180);
+  //Horn?
+}
+
+void SerialPrint(){
+  Serial.print("Steering: ");
+  Serial.println(steerServoVal);
+  Serial.print(" Speed: ");
+  Serial.println(speedServoVal);
+}
