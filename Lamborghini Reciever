@@ -7,6 +7,7 @@ Servo steerServo; //Attached to Servo 1
 Servo speedServo; //Attached to Servo 2
 int steerServoVal; //Values mapped to 0-180 from RF24 Values
 int speedServoVal;
+int reversePin = 2;
 
 RF24 radio(7, 8); // CSN, CE
 
@@ -16,7 +17,7 @@ struct package{
   uint16_t YVal;
   uint16_t potButtonVal;
   uint16_t switchVal;
-  }
+  };
 
 typedef struct package Package;
 Package data;
@@ -29,6 +30,8 @@ void setup() {
   radio.setPALevel(RF24_PA_MIN); //MIN power low rage
   radio.setDataRate( RF24_250KBPS ) ;  //Minimum speed
 
+  pinMode(reversePin, OUTPUT);
+  
   steerServo.attach(10);
   speedServo.attach(9);
 
@@ -40,23 +43,35 @@ void setup() {
 
 void loop() {
   ReadData();
-  DataProcessing();
+  //DataProcessing();
+  speedServoVal = map(data.YVal, 0, 1024, 0, 180);
+  steerServoVal = map(data.XVal, 0, 1024, 25, 125);
   
   steerServo.write(steerServoVal);
   speedServo.write(speedServoVal);
   
-  SerialPrint();
+  if(data.switchVal == 1){
+    digitalWrite(reversePin, LOW);  
+  }else{
+    digitalWrite(reversePin, HIGH);
+  }
+  
+  //SerialPrint();
+  Serial.print("Steering: ");
+  Serial.println(steerServoVal);
+  Serial.print(" Speed: ");
+  Serial.println(speedServoVal);
+  Serial.print(" Reverse: ");
+  Serial.println(data.switchVal);
 }
 
 void ReadData(){
-  myRadio.openReadingPipe(1, 0xF0F0F0F0AA); //Which pipe to read, 40 bit Address
-  myRadio.startListening(); //Stop Transminting and start Reveicing 
-  if ( myRadio.available()){
-    while (myRadio.available()){
-      myRadio.read( &data, sizeof(data));
+  radio.openReadingPipe(1, 0xF0F0F0F0AA); //Which pipe to read, 40 bit Address
+  radio.startListening(); //Stop Transminting and start Reveicing 
+  if ( radio.available()){
+    while (radio.available()){
+      radio.read( &data, sizeof(data));
     }
-    Serial.print("\nReceived:");
-    Serial.println(data.msg);
   }else {
     Serial.println("no data");
     steerServoVal = 90;
@@ -64,9 +79,9 @@ void ReadData(){
   }
 }
 
-void DataProcessing(){
-  speedServoVal = map(data.encVal, 0, 100, 0, 180);
-  steerServoVal = map(data.XVal, 0, 1024, 0, 180);
+/*void DataProcessing(){
+  speedServoVal = map(data.YVal, 0, 1024, 0, 180);
+  steerServoVal = map(data.XVal, 0, 1024, 25, 125);
   //Horn?
 }
 
@@ -75,4 +90,4 @@ void SerialPrint(){
   Serial.println(steerServoVal);
   Serial.print(" Speed: ");
   Serial.println(speedServoVal);
-}
+}*/
